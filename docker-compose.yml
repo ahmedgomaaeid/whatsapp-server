@@ -1,14 +1,16 @@
-version: '3.8'
+version: "3.8"
 services:
   whatsapp-worker:
     build: .
     container_name: whatsapp_worker_api
     ports:
       - "5000:5000"
+      - "5900:5900"
+      - "6080:6080"
     volumes:
       - ./assets:/app/assets
-      - ./chrome_data:/data/chrome_profile  # حفظ الجلسة
-      - ./db:/app/db                        # حفظ قاعدة البيانات عشان الرسائل ما تضيعش لو قفلت السيرفر
-      - ./uploads:/app/uploads              # حفظ الصور المرفوعة
-    shm_size: '2gb'
+      - ./chrome_data:/data/chrome_profile # حفظ الجلسة
+      - ./db:/app/db # حفظ قاعدة البيانات عشان الرسائل ما تضيعش لو قفلت السيرفر
+      - ./uploads:/app/uploads # حفظ الصور المرفوعة
+    shm_size: "2gb"
     restart: unless-stopped
