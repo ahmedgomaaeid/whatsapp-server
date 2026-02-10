@@ -12,5 +12,8 @@ services:
       - ./chrome_data:/data/chrome_profile # حفظ الجلسة
       - ./db:/app/db # حفظ قاعدة البيانات عشان الرسائل ما تضيعش لو قفلت السيرفر
       - ./uploads:/app/uploads # حفظ الصور المرفوعة
+    environment:
+      - TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN_HERE
+      - TELEGRAM_CHAT_ID=YOUR_CHAT_ID_HERE
     shm_size: "2gb"
     restart: unless-stopped

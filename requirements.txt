@@ -4,3 +4,5 @@ pyperclip
 opencv-python-headless
 Pillow>=10.0.0
 pyscreeze
+requests
+numpy
