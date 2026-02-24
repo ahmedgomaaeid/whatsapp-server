@@ -115,6 +115,9 @@ def process_message(task, browser_is_open=False):
             log("⚠️ Send not confirmed")
             return False, "send_unconfirmed"
 
+        # 8. Wait before navigating away (let the message finish delivering)
+        time.sleep(3)
+
         log(f"Task completed in {time.time()-t0:.2f}s")
         return True, None
 

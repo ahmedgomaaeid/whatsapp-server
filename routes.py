@@ -38,6 +38,9 @@ def register_routes(app):
         if not message:
             return jsonify({"error": "Message text is required"}), 400
 
+        # Convert literal "\n" (two chars) to real newlines
+        message = message.replace('\\n', '\n')
+
         msg_id = add_to_queue(phone, message)
         return jsonify({"status": "queued", "message_id": msg_id}), 201
 
