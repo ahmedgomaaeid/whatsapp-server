@@ -16,7 +16,6 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             phone TEXT NOT NULL,
             message TEXT,
-            image_path TEXT,
             status TEXT DEFAULT 'pending',
             fail_reason TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -27,13 +26,13 @@ def init_db():
     conn.close()
 
 
-def add_to_queue(phone, message, image_path=None):
+def add_to_queue(phone, message):
     """Insert a new message into the queue."""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute(
-        'INSERT INTO messages (phone, message, image_path) VALUES (?, ?, ?)',
-        (phone, message, image_path)
+        'INSERT INTO messages (phone, message) VALUES (?, ?)',
+        (phone, message)
     )
     conn.commit()
     msg_id = c.lastrowid
@@ -59,6 +58,19 @@ def get_next_pending():
             log(f"DB locked (attempt {attempt + 1}/3): {e}")
             time.sleep(1)
     return None
+
+
+def count_pending():
+    """Return the number of pending messages in the queue."""
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=5)
+        c = conn.cursor()
+        c.execute("SELECT count(*) FROM messages WHERE status='pending'")
+        count = c.fetchone()[0]
+        conn.close()
+        return count
+    except Exception:
+        return 0
 
 
 def update_status(msg_id, status, fail_reason=None):

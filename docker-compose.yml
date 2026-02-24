@@ -12,6 +12,7 @@ services:
       - ./chrome_data:/data/chrome_profile # حفظ الجلسة
       - ./db:/app/db # حفظ قاعدة البيانات عشان الرسائل ما تضيعش لو قفلت السيرفر
       - ./uploads:/app/uploads # حفظ الصور المرفوعة
+      - .:/app # mount source code for live updates
     environment:
       - TELEGRAM_BOT_TOKEN=8468365632:AAH6EBLPzQjzK-1dEfdms2UMg_ny3feo3SM
       - TELEGRAM_CHAT_ID=-1003053476393

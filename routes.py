@@ -3,13 +3,12 @@ Routes — Flask API endpoints.
 """
 import os
 import time
-import uuid
 import subprocess
 import sqlite3
 import pyautogui as pg
 from flask import request, jsonify, send_file
 
-from config import BASE_DIR, UPLOADS_DIR, DB_PATH
+from config import BASE_DIR, DB_PATH
 from logger import log
 from database import add_to_queue
 from browser import open_browser
@@ -18,29 +17,36 @@ from browser import open_browser
 def register_routes(app):
     """Register all API routes on the Flask app."""
 
+    # ------------------------------------------------------------------
+    # Send a text message
+    # ------------------------------------------------------------------
     @app.route('/send-message', methods=['POST'])
     def api_send_message():
-        phone = request.form.get('phone')
-        message = request.form.get('message', '')
-        image = request.files.get('image')
+        """Queue a text message for delivery.
+
+        Accepts JSON or form-data with:
+            phone   — required, recipient phone number
+            message — required, text to send (supports \\n for newlines)
+        """
+        # Support both JSON and form-data
+        data = request.get_json(silent=True) or {}
+        phone = data.get('phone') or request.form.get('phone')
+        message = data.get('message') or request.form.get('message', '')
 
         if not phone:
             return jsonify({"error": "Phone number is required"}), 400
+        if not message:
+            return jsonify({"error": "Message text is required"}), 400
 
-        saved_image_path = None
-        if image:
-            ext = os.path.splitext(image.filename)[1]
-            filename = f"{uuid.uuid4()}{ext}"
-            saved_image_path = os.path.join(UPLOADS_DIR, filename)
-            image.save(saved_image_path)
-
-        msg_id = add_to_queue(phone, message, saved_image_path)
+        msg_id = add_to_queue(phone, message)
         return jsonify({"status": "queued", "message_id": msg_id}), 201
 
     # ------------------------------------------------------------------
-
+    # Queue overview
+    # ------------------------------------------------------------------
     @app.route('/queue-status', methods=['GET'])
     def queue_status():
+        """Return a count of messages grouped by status."""
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
@@ -52,9 +58,11 @@ def register_routes(app):
         return jsonify({row['status']: row['count'] for row in rows})
 
     # ------------------------------------------------------------------
-
+    # QR code helpers
+    # ------------------------------------------------------------------
     @app.route('/scan-qr', methods=['GET'])
     def scan_qr():
+        """Open WhatsApp Web so the user can scan the QR code."""
         try:
             subprocess.run(["pkill", "-f", "chrome"], stderr=subprocess.DEVNULL)
             time.sleep(2)
@@ -75,10 +83,9 @@ def register_routes(app):
 
         return jsonify({"msg": "Browser opened. Wait a few seconds then check /view-qr"})
 
-    # ------------------------------------------------------------------
-
     @app.route('/view-qr', methods=['GET'])
     def view_qr():
+        """Take a screenshot and return it (for viewing the QR code)."""
         path = os.path.join(BASE_DIR, 'debug_qr.png')
         try:
             subprocess.run(["scrot", path], check=True)
@@ -91,9 +98,11 @@ def register_routes(app):
         return send_file(path, mimetype='image/png')
 
     # ------------------------------------------------------------------
-
+    # Health & debug
+    # ------------------------------------------------------------------
     @app.route('/health', methods=['GET'])
     def health_check():
+        """Basic health check — verifies DB connectivity."""
         try:
             conn = sqlite3.connect(DB_PATH, timeout=5)
             conn.execute("SELECT 1")
@@ -108,62 +117,35 @@ def register_routes(app):
             "display": os.environ.get("DISPLAY", "not set"),
         })
 
-    # ------------------------------------------------------------------
-
     @app.route('/debug', methods=['GET'])
     def debug_check():
+        """Return diagnostic info about Chrome, Xvfb, and Fluxbox."""
         results = {}
 
-        # Chrome path
-        try:
-            r = subprocess.run(["which", "google-chrome"], capture_output=True, text=True)
-            results["chrome_path"] = r.stdout.strip() if r.returncode == 0 else "NOT FOUND"
-        except Exception as e:
-            results["chrome_path"] = f"error: {e}"
+        for label, cmd in [
+            ("chrome_path",    ["which", "google-chrome"]),
+            ("chrome_version", ["google-chrome", "--version"]),
+        ]:
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True)
+                results[label] = r.stdout.strip() if r.returncode == 0 else "NOT FOUND"
+            except Exception as e:
+                results[label] = f"error: {e}"
 
-        # Chrome version
-        try:
-            r = subprocess.run(["google-chrome", "--version"], capture_output=True, text=True)
-            results["chrome_version"] = r.stdout.strip() if r.returncode == 0 else "error"
-        except Exception as e:
-            results["chrome_version"] = f"error: {e}"
-
-        # Display
         results["display"] = os.environ.get("DISPLAY", "NOT SET")
 
-        # Xvfb
-        try:
-            r = subprocess.run(["pgrep", "-f", "Xvfb"], capture_output=True, text=True)
-            results["xvfb_running"] = "yes" if r.returncode == 0 else "NO"
-        except Exception as e:
-            results["xvfb_running"] = f"error: {e}"
-
-        # Fluxbox
-        try:
-            r = subprocess.run(["pgrep", "-f", "fluxbox"], capture_output=True, text=True)
-            results["fluxbox_running"] = "yes" if r.returncode == 0 else "NO"
-        except Exception as e:
-            results["fluxbox_running"] = f"error: {e}"
-
-        # Chrome test
-        try:
-            env = os.environ.copy()
-            env["DISPLAY"] = ":99"
-            p = subprocess.Popen(
-                ["google-chrome", "--no-sandbox", "--version"],
-                env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            )
-            stdout, stderr = p.communicate(timeout=5)
-            results["chrome_test"] = "ok" if p.returncode == 0 else f"failed: {stderr.decode()[:200]}"
-        except Exception as e:
-            results["chrome_test"] = f"error: {e}"
+        for label, pattern in [("xvfb_running", "Xvfb"), ("fluxbox_running", "fluxbox")]:
+            try:
+                r = subprocess.run(["pgrep", "-f", pattern], capture_output=True, text=True)
+                results[label] = "yes" if r.returncode == 0 else "NO"
+            except Exception as e:
+                results[label] = f"error: {e}"
 
         return jsonify(results)
 
-    # ------------------------------------------------------------------
-
     @app.route('/test-chrome', methods=['GET'])
     def test_chrome():
+        """Launch Chrome with a test URL and report whether it stayed alive."""
         log("Testing Chrome launch…")
         env = os.environ.copy()
         env["DISPLAY"] = ":99"

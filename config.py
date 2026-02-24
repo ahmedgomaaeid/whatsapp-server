@@ -12,11 +12,9 @@ pg.FAILSAFE = False
 # --- Paths ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(BASE_DIR, 'assets')
-UPLOADS_DIR = os.path.join(BASE_DIR, 'uploads')
 DB_PATH = os.path.join(BASE_DIR, 'db', 'queue.db')
 
 # Ensure directories exist
-os.makedirs(UPLOADS_DIR, exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, 'db'), exist_ok=True)
 
 # --- Asset images for screen detection ---

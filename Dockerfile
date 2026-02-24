@@ -11,7 +11,9 @@ RUN apt-get update && apt-get install -y \
     unzip \
     xvfb \
     xclip \
+    xsel \
     scrot \
+    gnome-screenshot \
     xdotool \
     x11vnc \
     novnc \
